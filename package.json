@@ -1,0 +1,45 @@
+{
+    "name": "sockel",
+    "version": "0.0.1",
+    "description": "",
+    "main": "index.js",
+    "scripts": {
+        "tslint": "tslint -c tslint.json -p tsconfig.json",
+        "build": "tsc -d",
+        "test": "echo \"Error: no test specified\" && exit 1"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/Leixor/sockel.git"
+    },
+    "author": "Vincenzo Bologna",
+    "license": "MIT",
+    "bugs": {
+        "url": "https://github.com/Leixor/sockel/issues"
+    },
+    "homepage": "https://github.com/Leixor/sockel#readme",
+    "dependencies": {
+        "@types/uuid": "^3.4.5",
+        "@types/ws": "^6.0.3",
+        "axios": "^0.19.2",
+        "isomorphic-ws": "^4.0.1",
+        "jsonschema": "^1.2.5",
+        "typescript": "^3.7.2",
+        "uuid": "^3.3.3",
+        "ws": "^7.2.1"
+    },
+    "devDependencies": {
+        "prettier": "^1.18.2",
+        "ts-node": "^8.0.3",
+        "tslint": "^5.20.0",
+        "tslint-config-airbnb": "^5.11.1",
+        "chai": "^4.2.0",
+        "@types/chai": "^4.2.7",
+        "mocha": "^7.0.0",
+        "@types/mocha": "^5.2.7",
+        "chai-as-promised": "^7.1.1",
+        "@types/chai-as-promised": "^7.1.2",
+        "chai-exclude": "^2.0.2",
+        "chai-spies": "^1.0.0"
+    }
+}
