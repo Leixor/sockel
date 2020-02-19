@@ -1,7 +1,7 @@
 import WebSocket, { ServerOptions } from "isomorphic-ws";
 import * as http from "http";
 import uuid from "uuid";
-import { Message, Sockel } from "./sockel";
+import Sockel, { Message } from "./sockel";
 
 export type User = { id: string };
 
@@ -12,7 +12,7 @@ interface ConnectedUser<CustomUser extends User> {
 
 type OnMessageCallback<CustomUser extends User> = (data: any, connectedUser: ConnectedUser<CustomUser>) => void;
 
-export class Server<CustomUser extends User> {
+export default class Server<CustomUser extends User> {
     protected server: WebSocket.Server;
     private constructor(
         extractUserFromRequest: (request: http.IncomingMessage) => CustomUser,

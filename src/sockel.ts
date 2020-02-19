@@ -5,7 +5,7 @@ export interface Message {
     data: object;
 }
 
-export class Sockel {
+export default class Sockel {
     protected socket: WebSocket;
     constructor(ws: WebSocket) {
         this.socket = ws;

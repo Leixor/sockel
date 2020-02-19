@@ -1,8 +1,8 @@
 import { expect } from "chai";
-import { Client } from "../src/client";
+import Client from "../src/client";
 import * as http from "http";
 import { Message } from "../src/sockel";
-import { Server } from "../src/server";
+import Server from "../src/server";
 
 interface TestMessage extends Message {
     type: "TEST_MESSAGE";
@@ -14,7 +14,7 @@ describe("Sockel", () => {
     const websocketServerPort = 3006;
     const message: TestMessage = { type: "TEST_MESSAGE", data: { testString: "cool" } };
 
-    const extractUserFromRequest = (req: http.IncomingMessage) => ({ id: "", type: 2 });
+    const extractUserFromRequest = (req: http.IncomingMessage) => ({ id: "", type: 3 });
 
     let sockelServer: Server<ReturnType<typeof extractUserFromRequest>>;
 

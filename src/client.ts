@@ -1,15 +1,14 @@
 import WebSocket from "isomorphic-ws";
-import { Message, Sockel } from "./sockel";
-import * as http from "http";
+import Sockel, { Message } from "./sockel";
 
 type OnMessageCallback = (data: any, ws: Sockel) => void;
 
-export class Client extends Sockel {
+export default class Client extends Sockel {
     constructor(url: string, protocols?: string | string[], options?: WebSocket.ClientOptions) {
         super(new WebSocket(url, protocols, options));
 
-        this.socket.on("message", (message: Buffer) => {
-            const parsedMessage = JSON.parse(message.toString()) as Message;
+        this.socket.onmessage = (message: WebSocket.MessageEvent) => {
+            const parsedMessage = JSON.parse(message.data.toString()) as Message;
 
             if (!parsedMessage.type || !parsedMessage.data) {
                 console.error("Can't call function for message with wrong format");
@@ -18,7 +17,7 @@ export class Client extends Sockel {
             this.onMessageHandlers[parsedMessage.type].forEach((cb) => {
                 cb(parsedMessage.data, this);
             });
-        });
+        };
 
         this.onmessage("IS_CONNECTED", () => {
             console.log("Succesfully connected");
@@ -43,27 +42,30 @@ export class Client extends Sockel {
         this.onMessageHandlers[type].push(cb);
     }
 
-    public onclose(listener: (this: WebSocket, code: number, reason: string) => void): void {
-        this.socket.on("close", listener);
+    /**
+     * Passthrough wrapper
+     *
+     * @param cb
+     */
+    public onopen(cb: (event: WebSocket.OpenEvent) => void) {
+        this.socket.onopen = cb;
     }
 
-    public onerror(listener: (this: WebSocket, err: Error) => void) {
-        this.socket.on("error", listener);
+    /**
+     * Passthrough wrapper
+     *
+     * @param cb
+     */
+    public onerror(cb: (event: WebSocket.ErrorEvent) => void) {
+        this.socket.onerror = cb;
     }
 
-    public onupgrade(listener: (this: WebSocket, request: http.IncomingMessage) => void) {
-        this.socket.on("upgrade", listener);
-    }
-    public onopen(listener: (this: WebSocket) => void) {
-        this.socket.on("open", listener);
-    }
-
-    public onpong(listener: (this: WebSocket, data: Buffer) => void) {
-        this.socket.on("poing", listener);
-    }
-    public onunexpectedresponse(
-        listener: (this: WebSocket, request: http.ClientRequest, response: http.IncomingMessage) => void
-    ) {
-        this.socket.on("unexpected-response", listener);
+    /**
+     * Passthrough wrapper
+     *
+     * @param cb
+     */
+    public onclose(cb: (event: WebSocket.CloseEvent) => void) {
+        this.socket.onclose = cb;
     }
 }
