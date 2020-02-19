@@ -1,8 +1,8 @@
 import WebSocket from "isomorphic-ws";
 
-export interface Message {
+export interface Message<T extends object = object> {
     type: string;
-    data: object;
+    data: T;
 }
 
 export default class Sockel {
