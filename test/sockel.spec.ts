@@ -9,14 +9,20 @@ interface TestMessage extends Message {
     data: { testString: string };
 }
 
+type Await<T> = T extends {
+    then(onfulfilled?: (value: infer U) => unknown): unknown;
+}
+    ? U
+    : T;
+
 describe("Sockel", () => {
     let sockelClient: Client;
     const websocketServerPort = 3006;
     const message: TestMessage = { type: "TEST_MESSAGE", data: { testString: "cool" } };
 
-    const extractUserFromRequest = (req: http.IncomingMessage) => ({ id: "", type: 3 });
+    const extractUserFromRequest = async (req: http.IncomingMessage) => ({ id: "", type: 3 });
 
-    let sockelServer: Server<ReturnType<typeof extractUserFromRequest>>;
+    let sockelServer: Server<Await<ReturnType<typeof extractUserFromRequest>>>;
 
     before(() => {
         sockelServer = Server.create({
