@@ -2,10 +2,11 @@
     "name": "sockel",
     "version": "0.0.2",
     "description": "",
-    "main": "index.js",
     "scripts": {
         "tslint": "tslint -c tslint.json -p tsconfig.json",
         "build": "tsc -d",
+        "build:fix": "npm run tslint -- --fix && npm run build",
+        "pub:patch": "npm version patch & npm run build:fix & npm publish",
         "test": "mocha --require ts-node/register ./test/**/*.spec.ts --exit"
     },
     "repository": {
@@ -41,5 +42,12 @@
         "@types/chai-as-promised": "^7.1.2",
         "chai-exclude": "^2.0.2",
         "chai-spies": "^1.0.0"
-    }
+    },
+    "files": [
+        "dist",
+        "package.json",
+        "tslint.json"
+    ],
+    "types": "dist/index.d.ts",
+    "main": "dist/index.js"
 }

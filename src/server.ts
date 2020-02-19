@@ -112,8 +112,7 @@ export default class Server<CustomUser extends User> {
     ) {
         if (options.extractUserFromRequest === undefined) {
             return new this((req: http.IncomingMessage) => ({ id: uuid() }), options, cb);
-        } else {
-            return new this(options.extractUserFromRequest, options, cb);
         }
+        return new this(options.extractUserFromRequest, options, cb);
     }
 }
