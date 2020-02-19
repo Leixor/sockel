@@ -3,7 +3,7 @@ import * as http from "http";
 import uuid from "uuid";
 import Sockel, { Message } from "./sockel";
 
-export type User = { id: string| number};
+export type User = { id: string | number };
 
 interface ConnectedUser<CustomUser extends User> {
     ws: Sockel;
@@ -15,14 +15,14 @@ type OnMessageCallback<CustomUser extends User> = (data: any, connectedUser: Con
 export default class Server<CustomUser extends User> {
     protected server: WebSocket.Server;
     private constructor(
-        extractUserFromRequest: (request: http.IncomingMessage) => CustomUser,
+        extractUserFromRequest: (request: http.IncomingMessage) => Promise<CustomUser> | CustomUser,
         options?: ServerOptions,
         cb?: () => void
     ) {
         this.server = new WebSocket.Server(options, cb);
 
-        this.server.on("connection", (ws, request: http.IncomingMessage) => {
-            const user: CustomUser = extractUserFromRequest(request);
+        this.server.on("connection", async (ws, request: http.IncomingMessage) => {
+            const user: CustomUser = await extractUserFromRequest(request);
 
             const connectedUser: ConnectedUser<CustomUser> = { ws: new Sockel(ws), user };
 
@@ -100,12 +100,14 @@ export default class Server<CustomUser extends User> {
     ): Server<User>;
     public static create<T extends User>(
         options: ServerOptions & {
-            extractUserFromRequest: (req: http.IncomingMessage) => T;
+            extractUserFromRequest: (req: http.IncomingMessage) => Promise<T> | T;
         },
         cb?: () => void
     ): Server<T>;
     public static create<T extends User>(
-        options: ServerOptions & { extractUserFromRequest?: undefined | ((req: http.IncomingMessage) => T) } = {
+        options: ServerOptions & {
+            extractUserFromRequest?: undefined | ((req: http.IncomingMessage) => Promise<T> | T);
+        } = {
             extractUserFromRequest: undefined,
         },
         cb?: () => void
