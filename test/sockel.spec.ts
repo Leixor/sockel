@@ -1,7 +1,8 @@
-import { Message, Sockel } from "../src/sockel";
 import { expect } from "chai";
-import { SockelClient } from "../src/sockelClient";
+import { Client } from "../src/client";
 import * as http from "http";
+import { Message } from "../src/sockel";
+import { Server } from "../src/server";
 
 interface TestMessage extends Message {
     type: "TEST_MESSAGE";
@@ -9,67 +10,67 @@ interface TestMessage extends Message {
 }
 
 describe("Sockel", () => {
-    let client: SockelClient;
+    let sockelClient: Client;
     const websocketServerPort = 3006;
     const message: TestMessage = { type: "TEST_MESSAGE", data: { testString: "cool" } };
 
     const extractUserFromRequest = (req: http.IncomingMessage) => ({ id: "", type: 2 });
 
-    let sockel: Sockel<ReturnType<typeof extractUserFromRequest>>;
+    let sockelServer: Server<ReturnType<typeof extractUserFromRequest>>;
 
     before(() => {
-        sockel = Sockel.create({
+        sockelServer = Server.create({
             port: websocketServerPort,
             extractUserFromRequest: (req) => ({ type: 2, id: "Test" }),
         });
     });
 
     after(() => {
-        sockel.close();
+        sockelServer.close();
     });
 
     describe("Server", () => {
         beforeEach(() => {
-            client = new SockelClient(`ws://localhost:${websocketServerPort}`);
-            sockel.purgeOnMessageCallbacks();
+            sockelClient = new Client(`ws://localhost:${websocketServerPort}`);
+            sockelServer.purgeOnMessageCallbacks();
         });
 
         afterEach(() => {
-            client.close();
+            sockelClient.close();
         });
 
-        it("calls onMessage callback on correct message type", (done) => {
-            sockel.onMessage<TestMessage>("TEST_MESSAGE", (data, connectedUser) => {
+        it("calls onmessage callback onmessage correct message type", (done) => {
+            sockelServer.onmessage<TestMessage>("TEST_MESSAGE", (data, connectedUser) => {
                 expect(connectedUser.user.id).to.be.equal("Test");
                 done();
             });
 
-            client.on("open", () => {
-                client.send(message);
+            sockelClient.onopen(() => {
+                sockelClient.send(message);
             });
         });
     });
 
     describe("Client", () => {
         beforeEach((done) => {
-            client = new SockelClient(`ws://localhost:${websocketServerPort}`);
-            sockel.purgeOnMessageCallbacks();
+            sockelClient = new Client(`ws://localhost:${websocketServerPort}`);
+            sockelServer.purgeOnMessageCallbacks();
 
             done();
         });
 
         afterEach(() => {
-            client.close();
+            sockelClient.close();
         });
 
-        it("calls onMessage callback on correct message type", function(done) {
-            client.onMessage<TestMessage>("TEST_MESSAGE", (data, ws) => {
+        it("calls onmessage callback onmessage correct message type", function(done) {
+            sockelClient.onmessage<TestMessage>("TEST_MESSAGE", (data, ws) => {
                 expect(data.testString).to.be.equal("cool");
                 done();
             });
 
-            client.on("open", () => {
-                sockel.sendToUser("Test", message);
+            sockelClient.onopen(() => {
+                sockelServer.sendToUser("Test", message);
             });
         });
     });
