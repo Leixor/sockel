@@ -1,6 +1,6 @@
 {
     "name": "sockel",
-    "version": "0.0.3",
+    "version": "0.0.4",
     "description": "",
     "scripts": {
         "tslint": "tslint -c tslint.json -p tsconfig.json",
