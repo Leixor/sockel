@@ -3,7 +3,7 @@ import * as http from "http";
 import uuid from "uuid";
 import Sockel, { Message } from "./sockel";
 
-export type User = { id: string };
+export type User = { id: string| number};
 
 interface ConnectedUser<CustomUser extends User> {
     ws: Sockel;
@@ -65,7 +65,7 @@ export default class Server<CustomUser extends User> {
     /**
      * A full list of connected users
      */
-    protected connectedUsers: Map<string, Set<ConnectedUser<CustomUser>>> = new Map();
+    protected connectedUsers: Map<CustomUser["id"], Set<ConnectedUser<CustomUser>>> = new Map();
 
     public onmessage<messageType extends Message>(
         type: messageType["type"],
@@ -78,7 +78,7 @@ export default class Server<CustomUser extends User> {
         this.onMessageHandlers[type].push(cb);
     }
 
-    public sendToUser(userId: string, message: Message) {
+    public sendToUser(userId: CustomUser["id"], message: Message) {
         if (!this.connectedUsers.get(userId)) {
             throw new Error("User with this id doesn't exist");
         }
