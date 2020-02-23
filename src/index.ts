@@ -1,3 +1,5 @@
-export * from "./client";
-export * from "./server";
-export * from "./sockel";
+import { SockelServer } from "./sockelServer";
+import { SockelClient } from "./sockelClient";
+import { WebSockel } from "./webSockel";
+
+export { SockelServer, SockelClient, WebSockel };
