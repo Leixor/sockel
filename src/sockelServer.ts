@@ -1,7 +1,7 @@
 import WebSocket, { ServerOptions } from "isomorphic-ws";
 import * as http from "http";
 import uuid from "uuid";
-import { IsConnectedMessage, Message, WebSockel } from "./webSockel";
+import { InternalMessage, IsConnectedMessage, Message, WebSockel } from "./webSockel";
 
 export type User = { id: string | number };
 
@@ -10,7 +10,7 @@ interface ConnectedSockel<TUser extends User> {
     user: TUser;
 }
 
-type OnMessageCallback<TUser extends User> = (data: any, connectedSockel: ConnectedSockel<TUser>) => void;
+type OnMessageCallback<TUser extends User> = (data: any, connectedSockel: ConnectedSockel<TUser>) => void | Message;
 
 export class SockelServer<TUser extends User> {
     /**
@@ -47,7 +47,7 @@ export class SockelServer<TUser extends User> {
             console.log(`User: ${user.id} connected`);
 
             ws.on("message", (message: Buffer) => {
-                let internalMessage;
+                let internalMessage: InternalMessage;
                 try {
                     internalMessage = WebSockel.parseAsInternalMessage(message.toString());
                 } catch (error) {
@@ -57,8 +57,12 @@ export class SockelServer<TUser extends User> {
 
                 const publicMessage: Message = { type: internalMessage.type, data: internalMessage.data };
 
-                this.onMessageHandlers[publicMessage.type].forEach((cb) => {
-                    cb(publicMessage.data, connectedUser);
+                this.onMessageHandlers[publicMessage.type].forEach((cb: OnMessageCallback<any>) => {
+                    const message = cb(publicMessage.data, connectedUser);
+
+                    if (message) {
+                        sockel.send({ type: `RESPONSE_${internalMessage.metaData.messageId}`, data: message });
+                    }
                 });
             });
 

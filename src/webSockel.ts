@@ -1,20 +1,18 @@
 import WebSocket from "isomorphic-ws";
 import uuid from "uuid";
 
-type Serializable = { [key: string]: string | object | number | boolean };
-
 export interface Message {
     type: string;
-    data: Serializable;
+    data: { [key: string]: string | object | number | boolean } | Message;
 }
 
-interface InternalMessage extends Message {
+export interface InternalMessage extends Message {
     metaData: { timestamp: string; messageId: string };
 }
 
 export interface IsConnectedMessage extends Message {
     type: "IS_CONNECTED";
-    data: Serializable;
+    data: {};
 }
 
 /**
@@ -57,14 +55,16 @@ export class WebSockel {
      *
      * @param message
      */
-    public send<TMessage extends Message>(message: TMessage): void {
+    public send<TMessage extends Message>(message: TMessage): InternalMessage | void {
         const internalMessage: InternalMessage = {
             type: message.type,
             data: message.data,
             metaData: { timestamp: new Date().toISOString(), messageId: uuid() },
         };
 
-        this.socket.send(JSON.stringify(message));
+        this.socket.send(JSON.stringify(internalMessage));
+
+        return internalMessage;
     }
 
     /**
@@ -79,12 +79,12 @@ export class WebSockel {
 }
 
 function isInternalMessage(message: any): message is InternalMessage {
-    return (
+    return !(
         !message.type ||
-        !message.data ||
         !message.metaData ||
         !message.metaData.messageId ||
         !message.metaData.timestamp ||
+        !message.data ||
         typeof message.type !== "string" ||
         typeof message.data !== "object" ||
         typeof message.metaData !== "object" ||

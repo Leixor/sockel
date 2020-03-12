@@ -55,7 +55,7 @@ export class SockelClient extends WebSockel {
 
             await new Promise(() => {
                 setTimeout(() => {
-                    reject(Error("Timeout while connecting to server"));
+                    return reject(Error("Timeout while connecting to server"));
                 }, 2000);
             });
         });
@@ -74,6 +74,33 @@ export class SockelClient extends WebSockel {
         } else {
             this.messagesSentBeforeConnected.push(message);
         }
+    }
+
+    /**
+     * Wrapper for the underlying Websockel send
+     * If the client isn't connected while calling this function, all the messages will be set into a queue and will
+     * be send as soon as possible when connected successfully
+     *
+     * @param message
+     */
+    public async request<TMessage extends Message>(message: Message): Promise<TMessage> {
+        return await new Promise<TMessage>(async (resolve, reject) => {
+            const sendMessage = super.send(message);
+
+            if (!sendMessage) {
+                return;
+            }
+
+            this.onmessage(`RESPONSE_${sendMessage.metaData.messageId}`, (data: TMessage) => {
+                return resolve(data);
+            });
+
+            await new Promise(() => {
+                setTimeout(() => {
+                    return reject(Error("Timeout while connecting to server"));
+                }, 5000);
+            });
+        });
     }
 
     public onmessage(type: string, cb: (data: any, ws: WebSockel) => void): void;

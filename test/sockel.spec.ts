@@ -32,6 +32,7 @@ describe("Sockel", () => {
     describe("Server", () => {
         beforeEach(async () => {
             sockelClient = await SockelClient.open(`ws://localhost:${websocketServerPort}`);
+            sockelServer.purgeOnMessageCallbacks();
         });
 
         afterEach(() => {
@@ -59,6 +60,7 @@ describe("Sockel", () => {
     describe("Client", () => {
         beforeEach(async () => {
             sockelClient = await SockelClient.open(`ws://localhost:${websocketServerPort}`);
+            sockelServer.purgeOnMessageCallbacks();
         });
 
         afterEach(() => {
@@ -72,6 +74,16 @@ describe("Sockel", () => {
             });
 
             sockelServer.sendToUser("Test", testMessage);
+        });
+
+        it("can wait for request callback response", async () => {
+            sockelServer.onmessage("TEST_MESSAGE", () => {
+                return { type: "SYNC_MESSAGE", data: {} };
+            });
+
+            const response = await sockelClient.request(testMessage);
+
+            expect(response.type).to.be.equal("SYNC_MESSAGE");
         });
     });
 });
