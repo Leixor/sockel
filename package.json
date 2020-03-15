@@ -1,6 +1,6 @@
 {
     "name": "sockel",
-    "version": "0.0.8",
+    "version": "0.0.9",
     "description": "",
     "scripts": {
         "tslint": "tslint -c tslint.json -p tsconfig.json",
@@ -53,5 +53,11 @@
     ],
     "types": "dist/index.d.ts",
     "main": "dist/index.js",
-    "keywords": ["websocket", "sockel", "typescript", "typed", "synchronous websocket"]
+    "keywords": [
+        "websocket",
+        "sockel",
+        "typescript",
+        "typed",
+        "synchronous websocket"
+    ]
 }
