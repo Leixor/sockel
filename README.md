@@ -5,8 +5,7 @@
 1. The Message Interface
 2. Examples
     1. General Usage
-    2. [Client](#Client)
-    3. [Server](#Server)
+    2. Client
 
 ## The Message Interface
 
@@ -30,7 +29,7 @@ The following code shows an example
 ```typescript
 import { Client, Server };
 
-// NOTE: All following Message types can have completely arbitrary names, 
+// NOTE: All following Message types can have completely arbitrary names,
 // they are just named the way they are to better show the functionality
 const server = await Server.create();
 server.onmessage("SEND_TYPE", async (data: any) => {
