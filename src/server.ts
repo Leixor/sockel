@@ -3,6 +3,9 @@ import * as http from "http";
 import uuid from "uuid";
 import { InternalMessage, IsConnectedMessage, Message, WebSockel } from "./webSockel";
 
+import express, { Express } from "express";
+import { Client } from "./client";
+
 export type User = { id: string | number };
 
 interface ConnectedSockel<TUser extends User> {
@@ -10,18 +13,24 @@ interface ConnectedSockel<TUser extends User> {
     user: TUser;
 }
 
-type OnMessageCallback<TUser extends User> = (data: any, connectedSockel: ConnectedSockel<TUser>) => void | Message;
+type OnMessageCallback<TUser extends User> = (
+    data: any,
+    connectedSockel: ConnectedSockel<TUser>
+) => Promise<void | Message>;
 
-export class SockelServer<TUser extends User> {
+/**
+ *
+ */
+export class Server<TUser extends User> {
     /**
      * The internally wrapped Websocket.Server
      */
-    protected server: WebSocket.Server;
+    protected websocketServer: WebSocket.Server;
     /**
      * A list of callbacks which only get called if the message type of a websocket message matches a key in the object
      */
     protected onMessageHandlers: {
-        [key: string]: OnMessageCallback<TUser>[];
+        [key: string]: OnMessageCallback<TUser>;
     } = {};
     /**
      * A full list of all the connected users, grouped by their user id
@@ -33,20 +42,19 @@ export class SockelServer<TUser extends User> {
         options?: ServerOptions,
         cb?: () => void
     ) {
-        this.server = new WebSocket.Server(options, cb);
+        this.websocketServer = new WebSocket.Server(options, cb);
 
-        this.server.on("connection", async (ws, request: http.IncomingMessage) => {
+        this.websocketServer.on("connection", async (ws, request: http.IncomingMessage) => {
             const user: TUser = await extractUserFromRequest(request);
+
             const sockel = new WebSockel(ws);
 
             const connectedUser: ConnectedSockel<TUser> = { ws: sockel, user };
 
-            this.connectedUsers.get(user.id)?.add(connectedUser) ??
+            this.connectedUsers.get(connectedUser.user.id)?.add(connectedUser) ??
                 this.connectedUsers.set(user.id, new Set([connectedUser]));
 
-            console.log(`User: ${user.id} connected`);
-
-            ws.on("message", (message: Buffer) => {
+            ws.on("message", async (message: Buffer) => {
                 let internalMessage: InternalMessage;
                 try {
                     internalMessage = WebSockel.parseAsInternalMessage(message.toString());
@@ -55,20 +63,38 @@ export class SockelServer<TUser extends User> {
                     return;
                 }
 
-                const publicMessage: Message = { type: internalMessage.type, data: internalMessage.data };
+                const publicMessage: Message = { type: internalMessage.type, data: internalMessage.data ?? {} };
 
-                this.onMessageHandlers[publicMessage.type].forEach((cb: OnMessageCallback<any>) => {
-                    const message = cb(publicMessage.data, connectedUser);
+                if (!this.onMessageHandlers[publicMessage.type]) {
+                    return;
+                }
 
-                    if (message) {
-                        sockel.send({ type: `RESPONSE_${internalMessage.metaData.messageId}`, data: message });
-                    }
-                });
+                const responseMessage = await this.onMessageHandlers[publicMessage.type](
+                    publicMessage.data,
+                    connectedUser
+                );
+
+                if (internalMessage.metaData.waitingForResponse) {
+                    sockel.send({
+                        type: `RESPONSE_${internalMessage.metaData.messageId}`,
+                        data: responseMessage ? responseMessage : {},
+                    });
+
+                    return;
+                }
+
+                if (!responseMessage) {
+                    return;
+                }
+
+                sockel.send(responseMessage);
             });
 
-            sockel.send<IsConnectedMessage>({ type: "IS_CONNECTED", data: {} });
+            sockel.send<IsConnectedMessage>({ type: "IS_CONNECTED" });
         });
     }
+
+    private onMessageCallback(message: Buffer) {}
 
     /**
      * Passthrough wrapper for websocket close event
@@ -76,7 +102,7 @@ export class SockelServer<TUser extends User> {
      * @param cb
      */
     public close(cb?: (err?: Error) => void) {
-        this.server.close(cb);
+        this.websocketServer.close(cb);
     }
 
     /**
@@ -84,20 +110,19 @@ export class SockelServer<TUser extends User> {
      * @param type
      * @param cb
      */
-    public onmessage(type: string, cb: (data: any, connectedUser: ConnectedSockel<TUser>) => void): void;
-    public onmessage<TMessage extends Message>(
-        type: TMessage["type"],
-        cb: (data: TMessage["data"], connectedUser: ConnectedSockel<TUser>) => void
+    public onmessage(
+        type: string,
+        cb: (data: any, connectedUser: ConnectedSockel<TUser>) => Promise<void | Message>
     ): void;
     public onmessage<TMessage extends Message>(
         type: TMessage["type"],
-        cb: (data: TMessage, connectedUser: ConnectedSockel<TUser>) => void
+        cb: (data: TMessage["data"], connectedUser: ConnectedSockel<TUser>) => Promise<void | Message>
+    ): void;
+    public onmessage<TMessage extends Message>(
+        type: TMessage["type"],
+        cb: (data: TMessage, connectedUser: ConnectedSockel<TUser>) => Promise<void | Message>
     ): void {
-        if (!this.onMessageHandlers[type]) {
-            this.onMessageHandlers[type] = [];
-        }
-
-        this.onMessageHandlers[type].push(cb);
+        this.onMessageHandlers[type] = cb;
     }
 
     /**
@@ -132,14 +157,14 @@ export class SockelServer<TUser extends User> {
             extractUserFromRequest?: undefined;
         },
         cb?: () => void
-    ): SockelServer<User>;
+    ): Server<User>;
 
     public static create<TUser extends User>(
         options: ServerOptions & {
             extractUserFromRequest: (req: http.IncomingMessage) => Promise<TUser> | TUser;
         },
         cb?: () => void
-    ): SockelServer<TUser>;
+    ): Server<TUser>;
 
     public static create<TUser extends User>(
         options: ServerOptions & {
@@ -155,22 +180,3 @@ export class SockelServer<TUser extends User> {
         return new this(options.extractUserFromRequest, options, cb);
     }
 }
-
-// public onmessage<TMessage extends object, TMessage extends Message<TMessage>>(
-//     type: string,
-//     cb: (data: TMessage, connectedUser: ConnectedUser<TUser>) => void
-// ): void;
-// public onmessage<TMessage extends Message>(
-//     type: TMessage["type"],
-//     cb: (data: TMessage["data"], connectedUser: ConnectedUser<TUser>) => void
-// ): void;
-// public onmessage<TMessage extends Message>(
-//     type: TMessage["type"],
-//     cb: (data: TMessage["data"], connectedUser: ConnectedUser<TUser>) => void
-// ): void {
-//     if (!this.onMessageHandlers[type]) {
-//     this.onMessageHandlers[type] = [];
-// }
-//
-// this.onMessageHandlers[type].push(cb);
-// }

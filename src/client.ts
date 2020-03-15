@@ -3,20 +3,20 @@ import { IsConnectedMessage, Message, WebSockel } from "./webSockel";
 
 type OnMessageCallback = (data: any, ws: WebSockel) => void;
 
-export class SockelClient extends WebSockel {
+/**
+ * A webbrowser and node ready implementation of a sockel client
+ *
+ * Can only be instantiated with its public static [[connect]] function
+ */
+export class Client extends WebSockel {
     /**
      * A list of callbacks which only get called if the message type of a websocket message matches a key in the object
      */
     protected onMessageHandlers: {
         [key: string]: OnMessageCallback[];
     } = {};
-    /**
-     * An internal state which gets set to true when the server send an "IsConnectedMessage" to a client instance
-     */
-    private isConnected = false;
-    private messagesSentBeforeConnected: Message[] = [];
 
-    public constructor(url: string, protocols?: string | string[], options?: WebSocket.ClientOptions) {
+    private constructor(url: string, protocols?: string | string[], options?: WebSocket.ClientOptions) {
         super(new WebSocket(url, protocols, options));
 
         this.socket.onmessage = (message: WebSocket.MessageEvent) => {
@@ -24,85 +24,82 @@ export class SockelClient extends WebSockel {
 
             const publicMessage: Message = { type: internalMessage.type, data: internalMessage.data };
 
+            if (!this.onMessageHandlers[publicMessage.type]) {
+                return;
+            }
+
             this.onMessageHandlers[publicMessage.type].forEach((cb) => {
                 cb(publicMessage.data, this);
             });
         };
-
-        this.onmessage<IsConnectedMessage>("IS_CONNECTED", () => {
-            this.isConnected = true;
-            this.messagesSentBeforeConnected.forEach((message: Message) => {
-                this.send(message);
-            });
-
-            this.messagesSentBeforeConnected = [];
-
-            this.onconnection();
-        });
     }
 
-    public static async open(
+    /**
+     * Opens a connection to a sockel server
+     * This function is awaitable, as it waits for a response of the websocketServer (not just the open event)
+     *
+     * @param url
+     * @param protocols
+     * @param options
+     */
+    public static async connect(
         url: string,
         protocols?: string | string[],
         options?: WebSocket.ClientOptions
-    ): Promise<SockelClient> {
+    ): Promise<Client> {
         const client = new this(url, protocols, options);
 
         return await new Promise(async (resolve, reject) => {
             client.onmessage<IsConnectedMessage>("IS_CONNECTED", () => {
-                resolve(client);
+                return resolve(client);
             });
 
             await new Promise(() => {
                 setTimeout(() => {
-                    return reject(Error("Timeout while connecting to server"));
+                    return reject(Error("Timeout while connecting to websocketServer"));
                 }, 2000);
             });
         });
     }
 
     /**
-     * Wrapper for the underlying Websockel send
-     * If the client isn't connected while calling this function, all the messages will be set into a queue and will
-     * be send as soon as possible when connected successfully
+     * A synchronous alternative to the send function. You can await this call of a message sending to expect
+     * a message as a response from the websocketServer
      *
      * @param message
+     * @param timeout
      */
-    public send<TMessage extends Message>(message: TMessage) {
-        if (this.isConnected) {
-            super.send(message);
-        } else {
-            this.messagesSentBeforeConnected.push(message);
-        }
-    }
-
-    /**
-     * Wrapper for the underlying Websockel send
-     * If the client isn't connected while calling this function, all the messages will be set into a queue and will
-     * be send as soon as possible when connected successfully
-     *
-     * @param message
-     */
-    public async request<TMessage extends Message>(message: Message): Promise<TMessage> {
+    public async request<TMessage extends Message>(message: Message, timeout: number = 2000): Promise<TMessage> {
         return await new Promise<TMessage>(async (resolve, reject) => {
-            const sendMessage = super.send(message);
+            message.waitingForResponse = true;
 
-            if (!sendMessage) {
+            const sentMessage = super.send(message);
+
+            if (!sentMessage) {
                 return;
             }
 
-            this.onmessage(`RESPONSE_${sendMessage.metaData.messageId}`, (data: TMessage) => {
-                return resolve(data);
+            this.onmessage(`RESPONSE_${sentMessage.metaData.messageId}`, (responseMessage: TMessage) => {
+                return resolve(responseMessage);
             });
 
-            await new Promise(() => {
-                setTimeout(() => {
-                    return reject(Error("Timeout while connecting to server"));
-                }, 5000);
-            });
+            if (timeout > 0) {
+                await new Promise(() => {
+                    setTimeout(() => {
+                        return reject("Timeout while waiting for a response from the websocketServer");
+                    }, timeout);
+                });
+            }
         });
     }
 
+    /**
+     * Defines a callback for when the client receives a message with the given type from this methods parameter
+     * Can be given an interface as a generic argument, so the data is typed when using it in the callback
+     *
+     * @param type Defines on which message type the callback should be executed
+     * @param cb
+     */
     public onmessage(type: string, cb: (data: any, ws: WebSockel) => void): void;
     public onmessage<TMessage extends Message>(
         type: TMessage["type"],
@@ -114,15 +111,6 @@ export class SockelClient extends WebSockel {
         }
 
         this.onMessageHandlers[type].push(cb);
-    }
-
-    /**
-     * Passthrough wrapper
-     *
-     * @param cb
-     */
-    public onopen(cb: () => void) {
-        this.onconnection = cb;
     }
 
     /**
@@ -142,6 +130,4 @@ export class SockelClient extends WebSockel {
     public onclose(cb: (event: WebSocket.CloseEvent) => void) {
         this.socket.onclose = cb;
     }
-
-    private onconnection: () => void = () => {};
 }

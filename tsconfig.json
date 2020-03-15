@@ -13,7 +13,6 @@
     "declaration": false,
     "sourceMap": true,
     "inlineSources": true,
-    "sourceRoot": "/",
     "resolveJsonModule": true,
     "typeRoots": ["./node_modules/@types", "./src/typings"]
   },

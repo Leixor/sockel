@@ -1,66 +1,118 @@
 import WebSocket from "isomorphic-ws";
 import uuid from "uuid";
 
+/**
+ * A message represents a opinionated way of sending data via WebSockets.
+ * It is defined, by a type, its appended data (if needed) and some metaData
+ */
 export interface Message {
     type: string;
-    data: { [key: string]: string | object | number | boolean } | Message;
+    data?: { [key: string]: string | object | number | boolean } | Message;
+    waitingForResponse?: boolean;
+}
+
+export interface MessageMetaData {
+    timestamp: string;
+    messageId: string;
+    waitingForResponse: boolean;
 }
 
 export interface InternalMessage extends Message {
-    metaData: { timestamp: string; messageId: string };
+    metaData: MessageMetaData;
 }
 
 export interface IsConnectedMessage extends Message {
     type: "IS_CONNECTED";
-    data: {};
 }
 
 /**
- * This is not a one to one replacement for a Websocket, but instead just a wrapper which the client and the server
- * can use in their request handling
+ * This only serves as a representation of a WebSocket which will be used in as a parameter in custom defined
+ * [[onmessage]] callbacks
+ *
+ * **Important**: This can only be instantiated with an already existing WebSocket,
+ * for creating a connection to a websocketServer, see [[Client]]
  */
 export class WebSockel {
     /**
-     * The internally wrapped socket
+     * The internally wrapped WebSocket
      */
     protected socket: WebSocket;
 
     /**
-     * We pass an websocket instance in here instead of the tradional parameters so we can wrap incoming sockets for
-     * the server as well
-     * @param ws
+     * Accepts an external WebSocket as the input of the wrapped one, so the websocketServer can also wrap the incoming
+     * WebSockets into WebSockel wrappers
+     *
+     * @param {WebSocket} ws
      */
     constructor(ws: WebSocket) {
         this.socket = ws;
     }
 
-    public static parseAsInternalMessage(message: string): InternalMessage {
-        try {
-            const parsedMessage = JSON.parse(message);
-
-            if (isInternalMessage(parsedMessage)) {
-                return parsedMessage;
-            }
-
-            throw new Error("Message is not in a valid format");
-        } catch (error) {
-            throw error;
-        }
-    }
-
     /**
-     * We can only send messages with the given format {type: string, data: Serializable}
-     * We also send meta data to the given messages so we can uniquely identify messages between the client and the
-     * server
+     * Tries to parse an arbitrary string into a message representation
+     *
+     * Will throw an error if the string is not in a valid json format or doesn't suffice the requirements to be
+     * passed further along as a valid message
      *
      * @param message
      */
-    public send<TMessage extends Message>(message: TMessage): InternalMessage | void {
+    public static parseAsInternalMessage(message: string): InternalMessage {
+        let parsedMessage: object;
+
+        try {
+            parsedMessage = JSON.parse(message);
+        } catch (error) {
+            throw error;
+        }
+
+        if (WebSockel.isInternalMessage(parsedMessage)) {
+            return parsedMessage;
+        }
+
+        throw new Error("Message is not in a valid format");
+    }
+
+    /**
+     * A type check if the given input is a valid InternalMessage
+     *
+     * @param message
+     */
+    private static isInternalMessage(message: any): message is InternalMessage {
+        return !(
+            typeof message !== "object" ||
+            !message.type ||
+            !message.metaData ||
+            !message.metaData.messageId ||
+            !message.metaData.timestamp ||
+            typeof message.type !== "string" ||
+            typeof message.metaData !== "object" ||
+            typeof message.metaData.timestamp !== "string" ||
+            typeof message.metaData.messageId !== "string"
+        );
+    }
+
+    /**
+     * Sends a message via the underlying WebSocket connection
+     *
+     * Also passes meta data to the given messages so we can uniquely identify messages
+     * between the client and the websocketServer
+     *
+     * @param message
+     */
+    public send<TMessage extends Message>(message: TMessage): InternalMessage {
         const internalMessage: InternalMessage = {
             type: message.type,
             data: message.data,
-            metaData: { timestamp: new Date().toISOString(), messageId: uuid() },
+            metaData: {
+                timestamp: new Date().toISOString(),
+                messageId: uuid(),
+                waitingForResponse: message.waitingForResponse ?? false,
+            },
         };
+
+        if (!WebSockel.isInternalMessage(internalMessage)) {
+            throw new Error("Trying to send a message with an invalid format");
+        }
 
         this.socket.send(JSON.stringify(internalMessage));
 
@@ -68,7 +120,7 @@ export class WebSockel {
     }
 
     /**
-     * Passtrough wrapper for the original websocket close event
+     * A passtrough wrapper for the original websocket close event
      *
      * @param code
      * @param data
@@ -76,19 +128,4 @@ export class WebSockel {
     public close(code?: number, data?: string) {
         this.socket.close(code, data);
     }
-}
-
-function isInternalMessage(message: any): message is InternalMessage {
-    return !(
-        !message.type ||
-        !message.metaData ||
-        !message.metaData.messageId ||
-        !message.metaData.timestamp ||
-        !message.data ||
-        typeof message.type !== "string" ||
-        typeof message.data !== "object" ||
-        typeof message.metaData !== "object" ||
-        typeof message.metaData.timestamp !== "string" ||
-        typeof message.metaData.messageId !== "string"
-    );
 }
