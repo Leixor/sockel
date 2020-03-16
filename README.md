@@ -2,10 +2,30 @@
 
 ## A TypeScript way of writing WebSocket applications
 
-1. The Message Interface
-2. Examples
-    1. General Usage
-    2. Client
+This libray is a wrapper around the standard implementations of WebSocket libraries (both Server and Client side).
+It tries to enable developers to write WebSocket application that look more like standard API requests on both sides.
+
+Some features include:
+
+-   General
+    -   Streamlining how messages have to look like between client and servers
+    -   Routes can be declared on global scope without tinkering with the onconnection callback etc.
+    -   Coming soon
+        -   Automatic json schema validation before passing the data into your route callback
+-   Server
+    -   Built in user management
+        -   You don't have to store your connection in an extra format, sockel already handles
+            every incoming connection and stores them in the format that you need
+    -   Globaly declared routes
+        -   you don't have to declare your onmessage callbacks in any other callback, they can all be directly declared
+            after creating your server
+            callback etc.
+    -   Authentication
+        -   A function which handles Authentication and returns the resulting user objects can be defined
+            in a parameter on creation
+-   Client
+    -   Awaitable connection creation
+    -   Awaitable response for sent messages
 
 ## The Message Interface
 
